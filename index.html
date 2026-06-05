@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🎂 Birthday Machine 9000</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-pink: #ff2d78;
+      --neon-cyan: #00f5ff;
+      --neon-yellow: #ffe600;
+      --neon-green: #39ff14;
+      --neon-purple: #bf00ff;
+      --arcade-bg: #0a0010;
+      --metal: linear-gradient(145deg, #3a3a3a, #1a1a1a, #2e2e2e);
+      --metal-bright: linear-gradient(145deg, #6a6a6a, #3a3a3a, #555);
+      --inset: inset 3px 3px 8px rgba(0,0,0,0.8), inset -1px -1px 4px rgba(255,255,255,0.08);
+      --outset: 4px 4px 10px rgba(0,0,0,0.9), -1px -1px 4px rgba(255,255,255,0.07);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--arcade-bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Press Start 2P', monospace;
+      overflow-x: hidden;
+      position: relative;
+      padding: 20px 12px 60px;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Vignette */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+      pointer-events: none;
+      z-index: 9998;
+    }
+
+    #canvas-confetti {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* ---- ARCADE CABINET ---- */
+    .cabinet {
+      background: var(--metal);
+      border-radius: 18px 18px 8px 8px;
+      padding: 6px;
+      box-shadow:
+        var(--outset),
+        0 0 40px rgba(0, 245, 255, 0.08),
+        0 0 80px rgba(255, 45, 120, 0.05);
+      width: 100%;
+      max-width: 420px;
+      border: 2px solid #444;
+    }
+
+    /* Screen bezel */
+    .screen-bezel {
+      background: linear-gradient(145deg, #111, #0a0a0a, #1a1a1a);
+      border-radius: 14px 14px 6px 6px;
+      padding: 18px 14px 14px;
+      box-shadow: var(--inset);
+      border: 1px solid #333;
+      position: relative;
+    }
+
+    .screen-bezel::before {
+      content: 'BIRTHDAY MACHINE 9000';
+      display: block;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 5px;
+      color: #555;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    /* The actual screen */
+    .screen {
+      background: #020b0b;
+      border-radius: 8px;
+      padding: 20px 14px 22px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        var(--inset),
+        0 0 20px rgba(0,245,255,0.12) inset,
+        0 0 2px var(--neon-cyan);
+      border: 2px solid #003333;
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    /* CRT green tint */
+    .screen::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, rgba(0,255,200,0.04) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .title-block {
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .title-main {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--neon-yellow);
+      text-shadow:
+        0 0 8px var(--neon-yellow),
+        0 0 20px var(--neon-yellow),
+        0 0 40px rgba(255,230,0,0.4);
+      animation: flicker 4s infinite;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .title-sub {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan), 0 0 25px rgba(0,245,255,0.5);
+      letter-spacing: 2px;
+    }
+
+    /* Label */
+    .input-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--neon-green);
+      text-shadow: 0 0 6px var(--neon-green);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    /* Skeuomorphic input */
+    .input-wrap {
+      width: 100%;
+      position: relative;
+    }
+
+    .name-input {
+      width: 100%;
+      background: linear-gradient(180deg, #0a1a0a, #071207);
+      border: none;
+      border-radius: 6px;
+      padding: 14px 16px;
+      font-family: 'VT323', monospace;
+      font-size: 26px;
+      color: var(--neon-green);
+      text-shadow: 0 0 8px var(--neon-green);
+      text-align: center;
+      letter-spacing: 3px;
+      outline: none;
+      box-shadow:
+        inset 3px 3px 10px rgba(0,0,0,0.9),
+        inset -1px -1px 3px rgba(0,255,100,0.05),
+        0 0 0 2px #1a3a1a,
+        0 0 12px rgba(57,255,20,0.15);
+      transition: box-shadow 0.3s;
+      caret-color: var(--neon-green);
+    }
+
+    .name-input:focus {
+      box-shadow:
+        inset 3px 3px 10px rgba(0,0,0,0.9),
+        inset -1px -1px 3px rgba(0,255,100,0.08),
+        0 0 0 2px #2a5a2a,
+        0 0 20px rgba(57,255,20,0.35),
+        0 0 40px rgba(57,255,20,0.1);
+    }
+
+    .name-input::placeholder {
+      color: #1a4a1a;
+      font-size: 18px;
+    }
+
+    /* Big skeuomorphic button */
+    .btn-go {
+      margin-top: 14px;
+      width: 100%;
+      background: linear-gradient(145deg, #cc1a55, #8b0032, #ff2d78, #aa1a4a);
+      border: none;
+      border-radius: 10px;
+      padding: 16px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: #fff;
+      letter-spacing: 2px;
+      cursor: pointer;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 8px rgba(255,45,120,0.8);
+      box-shadow:
+        0 6px 0 #5a0020,
+        0 8px 15px rgba(0,0,0,0.8),
+        0 0 20px rgba(255,45,120,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.2),
+        inset 0 -1px 0 rgba(0,0,0,0.3);
+      transition: all 0.08s;
+      position: relative;
+      top: 0;
+    }
+
+    .btn-go:active {
+      top: 4px;
+      box-shadow:
+        0 2px 0 #5a0020,
+        0 3px 8px rgba(0,0,0,0.8),
+        0 0 20px rgba(255,45,120,0.4),
+        inset 0 1px 0 rgba(0,0,0,0.2);
+    }
+
+    /* Birthday message card */
+    .bday-card {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      animation: cardIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    .bday-card.show { display: flex; }
+
+    .cake-emoji {
+      font-size: 52px;
+      animation: bounce 0.6s ease infinite alternate, spin3d 3s linear infinite;
+      filter: drop-shadow(0 0 12px var(--neon-yellow));
+      display: block;
+    }
+
+    .bday-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 10px var(--neon-yellow), 0 0 30px rgba(255,230,0,0.5);
+      text-align: center;
+      line-height: 1.8;
+      animation: rainbow 2s linear infinite;
+    }
+
+    .message-box {
+      background: linear-gradient(145deg, #100020, #080014);
+      border-radius: 8px;
+      padding: 14px;
+      width: 100%;
+      box-shadow:
+        var(--inset),
+        0 0 0 1px #2a004a,
+        0 0 15px rgba(191,0,255,0.2);
+    }
+
+    .message-text {
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 6px var(--neon-cyan);
+      line-height: 1.5;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    /* Stars row */
+    .stars-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      font-size: 18px;
+      animation: starPulse 1.5s ease infinite alternate;
+      filter: drop-shadow(0 0 6px var(--neon-pink));
+    }
+
+    /* Restart button */
+    .btn-restart {
+      background: linear-gradient(145deg, #001a44, #000d22, #002266);
+      border: 2px solid #0055cc;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 6px var(--neon-cyan);
+      cursor: pointer;
+      box-shadow:
+        0 4px 0 #000a1a,
+        0 6px 12px rgba(0,0,0,0.8),
+        0 0 15px rgba(0,245,255,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      transition: all 0.08s;
+      position: relative;
+      top: 0;
+    }
+
+    .btn-restart:active { top: 3px; }
+
+    /* ---- CONTROL PANEL ---- */
+    .control-panel {
+      background: var(--metal);
+      border-radius: 0 0 10px 10px;
+      padding: 14px 16px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 2px solid #555;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+    }
+
+    .joystick {
+      width: 44px;
+      height: 44px;
+      background: radial-gradient(circle at 38% 35%, #555, #1a1a1a);
+      border-radius: 50%;
+      box-shadow: var(--outset), 0 0 8px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #444;
+    }
+
+    .joystick::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      background: radial-gradient(circle at 40% 35%, #888, #333);
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .arcade-btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .arcade-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      box-shadow:
+        0 5px 0 rgba(0,0,0,0.6),
+        0 6px 10px rgba(0,0,0,0.8),
+        inset 0 1px 0 rgba(255,255,255,0.3),
+        0 0 12px currentColor;
+      transition: all 0.08s;
+      position: relative;
+      top: 0;
+    }
+
+    .arcade-btn:active { top: 4px; box-shadow: 0 1px 0 rgba(0,0,0,0.6), inset 0 1px 0 rgba(0,0,0,0.2); }
+    .arcade-btn.red { background: radial-gradient(circle at 40% 35%, #ff6688, #cc1133); color: var(--neon-pink); }
+    .arcade-btn.cyan { background: radial-gradient(circle at 40% 35%, #66ffff, #009999); color: var(--neon-cyan); }
+    .arcade-btn.yellow { background: radial-gradient(circle at 40% 35%, #ffff66, #aaaa00); color: var(--neon-yellow); }
+
+    .coin-slot {
+      width: 40px;
+      background: linear-gradient(145deg, #222, #111);
+      border-radius: 6px;
+      padding: 6px;
+      box-shadow: var(--inset);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .slot {
+      width: 28px;
+      height: 4px;
+      background: #000;
+      border-radius: 2px;
+      box-shadow: inset 1px 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(255,230,0,0.3);
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 14px;
+      text-align: center;
+    }
+
+    .footer-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: var(--neon-purple);
+      text-shadow:
+        0 0 6px var(--neon-purple),
+        0 0 15px rgba(191,0,255,0.6);
+      letter-spacing: 2px;
+      animation: footerPulse 3s ease infinite alternate;
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes flicker {
+      0%,95%,100% { opacity: 1; }
+      96% { opacity: 0.4; }
+      97% { opacity: 1; }
+      98% { opacity: 0.2; }
+      99% { opacity: 1; }
+    }
+
+    @keyframes blink {
+      0%,49% { opacity: 1; }
+      50%,100% { opacity: 0; }
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+
+    @keyframes spin3d {
+      0% { transform: rotateY(0deg) translateY(0); }
+      50% { transform: rotateY(180deg) translateY(-10px); }
+      100% { transform: rotateY(360deg) translateY(0); }
+    }
+
+    @keyframes rainbow {
+      0% { color: var(--neon-yellow); text-shadow: 0 0 10px var(--neon-yellow); }
+      16% { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); }
+      33% { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); }
+      50% { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+      66% { color: var(--neon-purple); text-shadow: 0 0 10px var(--neon-purple); }
+      83% { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); }
+      100% { color: var(--neon-yellow); text-shadow: 0 0 10px var(--neon-yellow); }
+    }
+
+    @keyframes starPulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.2); }
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: scale(0.7) rotate(-5deg); }
+      to { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    @keyframes footerPulse {
+      from { text-shadow: 0 0 6px var(--neon-purple), 0 0 15px rgba(191,0,255,0.6); }
+      to { text-shadow: 0 0 15px var(--neon-purple), 0 0 30px rgba(191,0,255,0.9), 0 0 50px rgba(191,0,255,0.4); }
+    }
+
+    @keyframes screenFlash {
+      0% { background: #020b0b; }
+      15% { background: #002200; }
+      30% { background: #020b0b; }
+      45% { background: #001a33; }
+      60% { background: #020b0b; }
+    }
+
+    .screen.flash { animation: screenFlash 0.6s ease; }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-confetti"></canvas>
+
+<div class="cabinet">
+  <div class="screen-bezel">
+    <div class="screen" id="screen">
+
+      <!-- Entry state -->
+      <div id="entry-state">
+        <div class="title-block">
+          <span class="title-main">🎮 ENTER YOUR NAME</span>
+          <span class="title-sub">BIRTHDAY ARCADE</span>
+        </div>
+
+        <p class="input-label">TYPE YOUR NAME<br>TO UNLOCK THE PARTY</p>
+
+        <div class="input-wrap">
+          <input
+            class="name-input"
+            id="nameInput"
+            type="text"
+            placeholder="ENTER NAME..."
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+        </div>
+
+        <button class="btn-go" id="goBtn" onclick="checkName()">
+          ★ START PARTY ★
+        </button>
+      </div>
+
+      <!-- Birthday state -->
+      <div class="bday-card" id="bdayCard">
+        <span class="cake-emoji">🎂</span>
+
+        <div class="bday-title">HAPPY BIRTHDAY<br>HIMANK!!</div>
+
+        <div class="stars-row">🌟 🎉 🌟 🎉 🌟</div>
+
+        <div class="message-box">
+          <p class="message-text">
+            "Hey monk I am very cool and You are also very cool so how does a cool man wish a cool man his birthday? By coding a website! Happiest bday himank. Love u muah muah 😘"
+          </p>
+        </div>
+
+        <div class="stars-row">🎊 💖 🎊 💖 🎊</div>
+
+        <button class="btn-restart" onclick="restart()">↺ PLAY AGAIN</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Arcade controls -->
+  <div class="control-panel">
+    <div class="joystick"></div>
+    <div class="arcade-btns">
+      <button class="arcade-btn red" onclick="triggerConfetti()"></button>
+      <button class="arcade-btn cyan" onclick="triggerConfetti()"></button>
+      <button class="arcade-btn yellow" onclick="triggerConfetti()"></button>
+    </div>
+    <div class="coin-slot">
+      <div class="slot"></div>
+      <div class="slot"></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p class="footer-text">✦ DEVELOPED BY ASHAR ✦</p>
+</div>
+
+<script>
+// ---- CONFETTI ENGINE ----
+const canvas = document.getElementById('canvas-confetti');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const COLORS = ['#ff2d78','#00f5ff','#ffe600','#39ff14','#bf00ff','#ff8800','#ffffff'];
+let particles = [];
+let animId = null;
+
+function createParticle(x, y) {
+  return {
+    x: x ?? Math.random() * canvas.width,
+    y: y ?? -10,
+    vx: (Math.random() - 0.5) * 8,
+    vy: Math.random() * 4 + 2,
+    rot: Math.random() * 360,
+    rotSpeed: (Math.random() - 0.5) * 10,
+    w: Math.random() * 10 + 6,
+    h: Math.random() * 6 + 3,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    alpha: 1,
+    shape: Math.floor(Math.random() * 3),
+    gravity: 0.12
+  };
+}
+
+function burstConfetti(count = 120) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height * 0.3;
+  for (let i = 0; i < count; i++) {
+    const p = createParticle(cx + (Math.random()-0.5)*40, cy);
+    p.vx = (Math.random()-0.5)*16;
+    p.vy = Math.random() * -14 - 2;
+    p.gravity = 0.3;
+    particles.push(p);
+  }
+}
+
+function rainConfetti(count = 60) {
+  for (let i = 0; i < count; i++) {
+    particles.push(createParticle());
+  }
+}
+
+function triggerConfetti() {
+  burstConfetti(50);
+  if (!animId) animate();
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.vy += p.gravity;
+    p.y += p.vy;
+    p.rot += p.rotSpeed;
+    if (p.y > canvas.height * 0.7) p.alpha -= 0.015;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.alpha);
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot * Math.PI / 180);
+    ctx.fillStyle = p.color;
+
+    if (p.shape === 0) {
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+    } else if (p.shape === 1) {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.w/2, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, -p.h);
+      ctx.lineTo(p.w/2, p.h/2);
+      ctx.lineTo(-p.w/2, p.h/2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+
+  particles = particles.filter(p => p.alpha > 0 && p.y < canvas.height + 20);
+
+  if (particles.length > 0) {
+    animId = requestAnimationFrame(animate);
+  } else {
+    animId = null;
+  }
+}
+
+// ---- NAME CHECK ----
+function checkName() {
+  const input = document.getElementById('nameInput');
+  const val = input.value.trim().toLowerCase();
+  const valid = ['himank', 'himank singh'];
+
+  if (valid.includes(val)) {
+    showBirthday();
+  } else {
+    alert("🎮 WRONG PLAYER!\n\nPlease enter one of:\n• Himank\n• Himank Singh\n• himank\n\nThis party is reserved! 🎂");
+    input.value = '';
+    input.focus();
+  }
+}
+
+document.getElementById('nameInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') checkName();
+});
+
+function showBirthday() {
+  const screen = document.getElementById('screen');
+  const entry = document.getElementById('entry-state');
+  const card = document.getElementById('bdayCard');
+
+  screen.classList.add('flash');
+  setTimeout(() => screen.classList.remove('flash'), 600);
+
+  entry.style.display = 'none';
+  card.classList.add('show');
+
+  // Big burst + sustained rain
+  burstConfetti(120);
+  let rains = 0;
+  const rainInterval = setInterval(() => {
+    rainConfetti(25);
+    rains++;
+    if (rains > 5) clearInterval(rainInterval);
+  }, 600);
+
+  if (!animId) animate();
+
+  // Arcade buttons flash
+  flashButtons();
+}
+
+function flashButtons() {
+  const btns = document.querySelectorAll('.arcade-btn');
+  let count = 0;
+  const iv = setInterval(() => {
+    btns.forEach((b, i) => {
+      b.style.transform = count % 2 === i % 2 ? 'scale(1.2)' : 'scale(1)';
+    });
+    count++;
+    if (count > 12) {
+      btns.forEach(b => b.style.transform = 'scale(1)');
+      clearInterval(iv);
+    }
+  }, 150);
+}
+
+function restart() {
+  const entry = document.getElementById('entry-state');
+  const card = document.getElementById('bdayCard');
+  card.classList.remove('show');
+  entry.style.display = '';
+  document.getElementById('nameInput').value = '';
+  particles = [];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+</script>
+</body>
+</html>
